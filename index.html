@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PSP Launcher</title>
+<script>
+(function(){
+  if(window.crossOriginIsolated||!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('coi-sw.js').then(function(){return navigator.serviceWorker.ready}).then(function(){
+    if(!sessionStorage.getItem('coiTried')){sessionStorage.setItem('coiTried','1');location.reload();}
+  }).catch(function(e){console.warn('SW gagal:',e)});
+})();
+</script>
+
+<style>
+:root{--bg:#0b1220;--panel:#141d30;--line:#26334f;--text:#e8eefb;--mute:#8fa0c2;--acc:#3ea0ff;--ok:#38d39f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:8px 0 2px}
+.sub{color:var(--mute);margin:0 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 10px}
+.drop{display:block;border:2px dashed var(--line);border-radius:12px;padding:22px 12px;text-align:center;cursor:pointer;color:var(--mute)}
+.drop.has{border-color:var(--ok);color:var(--text)}
+.drop input{display:none}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0}
+.row label{flex:1}
+select{background:#0d1526;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px;min-width:150px;font-size:15px}
+.sw{position:relative;width:46px;height:26px}
+.sw input{opacity:0;width:100%;height:100%;position:absolute;margin:0;z-index:2}
+.sw i{position:absolute;inset:0;background:#2a3858;border-radius:99px;transition:.2s}
+.sw i::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.sw input:checked+i{background:var(--acc)}
+.sw input:checked+i::after{transform:translateX(20px)}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button{font:inherit;border:0;border-radius:10px;padding:11px;background:#22304f;color:var(--text);cursor:pointer}
+button.on{background:var(--acc);color:#04101f;font-weight:600}
+#start{width:100%;padding:15px;font-size:17px;background:var(--ok);color:#03130d;font-weight:700}
+#start:disabled{background:#2a3858;color:var(--mute)}
+.note{font-size:13px;color:var(--mute)}
+.warn{border-color:#7a5b1f;background:#2a2210;color:#f1d28a;font-size:13px}
+#stage{position:fixed;inset:0;background:#000;z-index:10;display:none}
+#stage.show{display:block}
+#game{width:100%;height:100%}
+#exit{position:fixed;top:calc(8px + env(safe-area-inset-top));right:8px;z-index:20;display:none;background:#000a;color:#fff;padding:8px 14px;border-radius:99px;font-size:13px}
+#stage.show~#exit{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PSP Launcher</h1>
+  <p class="sub">Emulator PSP (PPSSPP) di browser. Pilih game milikmu, atur grafik, lalu mainkan.</p>
+
+  <div id="isoWarn" class="card warn" hidden>Mode thread belum aktif. Muat ulang halaman sekali lagi. Jika tetap muncul, buka lewat https atau localhost di Chrome (bukan dari file:// atau preview editor).</div>
+
+  <div class="card">
+    <h2>Game</h2>
+    <label class="drop" id="drop">
+      <input type="file" id="rom" accept=".iso,.cso,.pbp,.zip,.7z">
+      <span id="romName">Ketuk untuk pilih file game (.iso / .cso / .pbp)</span>
+    </label>
+    <p class="note" style="margin:8px 0 0">File tidak diunggah ke server. Game dibaca langsung dari perangkatmu.</p>
+  </div>
+
+  <div class="card">
+    <h2>Preset grafik</h2>
+    <div class="presets">
+      <button data-p="low">Ringan</button>
+      <button data-p="mid" class="on">Seimbang</button>
+      <button data-p="high">Tinggi</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Pengaturan grafik</h2>
+    <div class="row"><label for="res">Resolusi internal</label>
+      <select id="res">
+        <option value="480x272">1x (480×272)</option>
+        <option value="960x544" selected>2x (960×544)</option>
+        <option value="1440x816">3x (1440×816)</option>
+        <option value="1920x1088">4x (1920×1088)</option>
+      </select></div>
+    <div class="row"><label for="fskip">Frameskip</label>
+      <select id="fskip">
+        <option value="disabled" selected>Mati</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+      </select></div>
+    <div class="row"><label for="tex">Penghalus tekstur</label>
+      <select id="tex">
+        <option value="disabled" selected>Mati</option>
+        <option value="2x">2x</option>
+        <option value="3x">3x</option>
+        <option value="4x">4x</option>
+      </select></div>
+    <div class="row"><label for="filt">Filter tekstur</label>
+      <select id="filt">
+        <option value="auto" selected>Otomatis</option>
+        <option value="nearest">Tajam (nearest)</option>
+        <option value="linear">Halus (linear)</option>
+      </select></div>
+    <div class="row"><label for="aspect">Rasio layar</label>
+      <select id="aspect">
+        <option value="default" selected>Asli (16:9)</option>
+        <option value="stretch">Penuhi layar</option>
+      </select></div>
+    <div class="row"><label for="autofs">Frameskip otomatis</label>
+      <span class="sw"><input type="checkbox" id="autofs"><i></i></span></div>
+    <div class="row"><label for="fps">Tampilkan FPS</label>
+      <span class="sw"><input type="checkbox" id="fps"><i></i></span></div>
+  </div>
+
+  <div class="card">
+    <h2>Kontrol</h2>
+    <div class="row"><label for="touch">Tombol layar sentuh (Android)</label>
+      <span class="sw"><input type="checkbox" id="touch" checked><i></i></span></div>
+    <p class="note" style="margin:0">Berisi D-pad, analog, ○ × □ △, L, R, Start, Select. Menu emulator (simpan state, atur ulang, suara) ada di bar bawah saat bermain.</p>
+  </div>
+
+  <button id="start" disabled>Mulai game</button>
+
+  <div class="card" style="margin-top:14px">
+    <h2>Catatan penting</h2>
+    <p class="note" style="margin:0 0 6px">• Butuh internet saat pertama dibuka (inti emulator dimuat dari cdn.emulatorjs.org).</p>
+    <p class="note" style="margin:0 0 6px">• PSP butuh mode multi-thread. Paling mudah: hosting file ini di server yang mengirim header <b>Cross-Origin-Opener-Policy: same-origin</b> dan <b>Cross-Origin-Embedder-Policy: require-corp</b>. Membuka langsung dari penyimpanan ponsel (file://) biasanya tidak cukup.</p>
+    <p class="note" style="margin:0">• Gunakan hanya game yang kamu miliki secara sah. Gunakan Chrome terbaru dan tutup aplikasi lain agar lancar.</p>
+  </div>
+</div>
+
+<div id="stage"><div id="game"></div></div>
+<button id="exit">Keluar</button>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var file=null;
+  if(!window.crossOriginIsolated)$('isoWarn').hidden=false;
+
+  $('rom').addEventListener('change',function(e){
+    file=e.target.files[0]||null;
+    $('romName').textContent=file?file.name:'Ketuk untuk pilih file game (.iso / .cso / .pbp)';
+    $('drop').classList.toggle('has',!!file);
+    $('start').disabled=!file;
+  });
+
+  var presets={
+    low:{res:'480x272',fskip:'1',tex:'disabled',filt:'nearest',autofs:true},
+    mid:{res:'960x544',fskip:'disabled',tex:'disabled',filt:'auto',autofs:false},
+    high:{res:'1440x816',fskip:'disabled',tex:'2x',filt:'linear',autofs:false}
+  };
+  document.querySelectorAll('[data-p]').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('[data-p]').forEach(function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      var p=presets[b.dataset.p];
+      $('res').value=p.res;$('fskip').value=p.fskip;$('tex').value=p.tex;$('filt').value=p.filt;$('autofs').checked=p.autofs;
+    });
+  });
+
+  $('start').addEventListener('click',function(){
+    if(!file)return;
+    $('start').disabled=true;
+    var url=URL.createObjectURL(file);
+    window.EJS_player='#game';
+    window.EJS_core='psp';
+    window.EJS_gameName=file.name.replace(/\.[^.]+$/,'');
+    window.EJS_gameUrl=url;
+    window.EJS_pathtodata='https://cdn.emulatorjs.org/stable/data/';
+    window.EJS_threads=!!window.crossOriginIsolated;
+    window.EJS_startOnLoaded=true;
+    window.EJS_fullscreenOnLoaded=false;
+    window.EJS_mouse=false;
+    window.EJS_color='#3ea0ff';
+    window.EJS_language='id';
+    window.EJS_VirtualGamepadSettings=undefined;
+    if(!$('touch').checked)window.EJS_disableVirtualGamepad=true;
+    window.EJS_defaultOptions={
+      'ppsspp_internal_resolution':$('res').value,
+      'ppsspp_frameskip':$('fskip').value,
+      'ppsspp_auto_frameskip':$('autofs').checked?'enabled':'disabled',
+      'ppsspp_texture_scaling_level':$('tex').value,
+      'ppsspp_texture_filtering':$('filt').value,
+      'ppsspp_show_fps':$('fps').checked?'enabled':'disabled'
+    };
+    if($('aspect').value==='stretch'){
+      var st=document.createElement('style');
+      st.textContent='#game canvas{width:100%!important;height:100%!important;object-fit:fill}';
+      document.head.appendChild(st);
+    }
+    $('stage').classList.add('show');
+    var s=document.createElement('script');
+    s.src=window.EJS_pathtodata+'loader.js';
+    s.onerror=function(){
+      alert('Gagal memuat emulator. Periksa koneksi internet lalu coba lagi.');
+      $('stage').classList.remove('show');$('start').disabled=false;
+    };
+    document.body.appendChild(s);
+  });
+
+  $('exit').addEventListener('click',function(){
+    if(confirm('Keluar dari game? Progres yang belum disimpan akan hilang.'))location.reload();
+  });
+})();
+</script>
+</body>
+</html>
